@@ -1,0 +1,16 @@
+{
+	"FileVersion": 3,
+	"EngineAssociation": "{C57F6013-4582-81B3-71AA-A49279B9A392}",
+	"Category": "",
+	"Description": "",
+	"Modules": [
+		{
+			"Name": "LD37OneRoom",
+			"Type": "Runtime",
+			"LoadingPhase": "Default",
+			"AdditionalDependencies": [
+				"Engine"
+			]
+		}
+	]
+}
