@@ -30,10 +30,11 @@ public:
 	// Called to bind functionality to input
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
+	virtual void AddMovementInput(FVector WorldDirection, float ScaleValue = 1.0f, bool bForce = false) override;
+
 protected:
 	void MoveSideways(float Val);
 	void MoveForward(float Val);
-	void MovePushingPawn(FVector dir, float Val);
 
 	UFUNCTION()
 	void OnHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComponent, FVector NormalImpulse, const FHitResult& Hit);
@@ -42,4 +43,9 @@ protected:
 	void Release();
 
 	class APresentPawn *PushingPawn;
+	FCollisionQueryParams m_traceParams;
+	bool m_traceXPos;
+	bool m_traceXNeg;
+	bool m_traceYPos;
+	bool m_traceYNeg;
 };

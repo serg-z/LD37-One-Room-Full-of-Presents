@@ -51,6 +51,28 @@ void ABoyCharacter::Tick( float DeltaTime )
 			// exponential moving average
 			PushingMoveTransition = alpha * v.Size() + (1.0f - alpha) * PushingMoveTransition;
 		}
+
+		// trace collision
+		{
+			const float rad = GetCapsuleComponent()->GetScaledCapsuleRadius();
+			const float radExt = rad * 1.2f;
+
+			//GetWorld()->DebugDrawTraceTag = TEXT("Yolo");
+
+			ECollisionChannel colchan = ECC_Pawn;
+
+			m_traceXPos = GetWorld()->LineTraceTestByChannel(GetActorLocation() + FVector(0.0f, rad, 0.0f), GetActorLocation() + FVector(radExt, rad, 0.0f), colchan, m_traceParams)
+				|| GetWorld()->LineTraceTestByChannel(GetActorLocation() + FVector(0.0f, -rad, 0.0f), GetActorLocation() + FVector(radExt, -rad, 0.0f), colchan, m_traceParams);
+
+			m_traceXNeg = GetWorld()->LineTraceTestByChannel(GetActorLocation() + FVector(0.0f, rad, 0.0f), GetActorLocation() + FVector(-radExt, rad, 0.0f), colchan, m_traceParams)
+				|| GetWorld()->LineTraceTestByChannel(GetActorLocation() + FVector(0.0f, -rad, 0.0f), GetActorLocation() + FVector(-radExt, -rad, 0.0f), colchan, m_traceParams);
+
+			m_traceYPos = GetWorld()->LineTraceTestByChannel(GetActorLocation() + FVector(rad, 0.0f, 0.0f), GetActorLocation() + FVector(rad, radExt, 0.0f), colchan, m_traceParams)
+				|| GetWorld()->LineTraceTestByChannel(GetActorLocation() + FVector(-rad, 0.0f, 0.0f), GetActorLocation() + FVector(-rad, radExt, 0.0f), colchan, m_traceParams);
+
+			m_traceYNeg = GetWorld()->LineTraceTestByChannel(GetActorLocation() + FVector(rad, 0.0f, 0.0f), GetActorLocation() + FVector(rad, -radExt, 0.0f), colchan, m_traceParams)
+				|| GetWorld()->LineTraceTestByChannel(GetActorLocation() + FVector(-rad, 0.0f, 0.0f), GetActorLocation() + FVector(-rad, -radExt, 0.0f), colchan, m_traceParams);
+		}
 	}
 }
 
@@ -66,32 +88,37 @@ void ABoyCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompon
 	PlayerInputComponent->BindAction("Push", IE_Released, this, &ABoyCharacter::Release);
 }
 
-void ABoyCharacter::MoveSideways(float Value)
+void ABoyCharacter::AddMovementInput(FVector WorldDirection, float ScaleValue, bool bForce)
 {
-	const FVector &v = FVector(0.f, 1.f, 0.f);
-
 	if (PushingPawn && Pushing)
 	{
-		MovePushingPawn(v, Value);
+		if (PushingPawn && Pushing)
+		{
+			FVector v = WorldDirection * ScaleValue;
+
+			if (m_traceXPos && v.X > 0 || m_traceXNeg && v.X < 0)
+				WorldDirection.X = 0;
+
+			if (m_traceYPos && v.Y > 0 || m_traceYNeg  && v.Y < 0)
+				WorldDirection.Y = 0;
+
+			PushingPawn->AddMovementInput(WorldDirection, ScaleValue, bForce);
+		}
 	}
 	else
 	{
-		AddMovementInput(v, Value);
+		ACharacter::AddMovementInput(WorldDirection, ScaleValue, bForce);
 	}
+}
+
+void ABoyCharacter::MoveSideways(float Value)
+{
+	AddMovementInput(FVector(0.f, 1.f, 0.f), Value);
 }
 
 void ABoyCharacter::MoveForward(float Value)
 {
-	const FVector &v = FVector(1.f, 0.f, 0.f);
-
-	if (PushingPawn && Pushing)
-	{
-		MovePushingPawn(v, Value);
-	}
-	else
-	{
-		AddMovementInput(v, Value);
-	}
+	AddMovementInput(FVector(1.f, 0.f, 0.f), Value);
 }
 
 void ABoyCharacter::OnHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComponent, FVector NormalImpulse, const FHitResult& Hit)
@@ -115,6 +142,10 @@ void ABoyCharacter::Push()
 
 		AttachToActor(PushingPawn, FAttachmentTransformRules::KeepWorldTransform);
 		SetActorEnableCollision(false);
+
+		m_traceParams = FCollisionQueryParams(TEXT("Yolo"), true, this);
+		m_traceParams.bReturnPhysicalMaterial = false;
+		m_traceParams.AddIgnoredActor(PushingPawn);
 	}
 }
 
@@ -128,12 +159,4 @@ void ABoyCharacter::Release()
 
 	GetCharacterMovement()->bOrientRotationToMovement = true;
 	GetCharacterMovement()->MaxWalkSpeed = 600.f;
-}
-
-void ABoyCharacter::MovePushingPawn(FVector v, float Value)
-{
-	if (PushingPawn && Pushing)
-	{
-		PushingPawn->AddMovementInput(v, Value);
-	}
 }
