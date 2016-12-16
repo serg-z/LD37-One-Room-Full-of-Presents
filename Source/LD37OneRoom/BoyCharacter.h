@@ -1,5 +1,3 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
 #pragma once
 
 #include "GameFramework/Character.h"
@@ -11,6 +9,15 @@ class LD37ONEROOM_API ABoyCharacter : public ACharacter
 	GENERATED_BODY()
 
 public:
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+	bool Pushing;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+	FVector PushingLastInputVector;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+	float PushingMoveTransition;
+
 	// Sets default values for this character's properties
 	ABoyCharacter();
 
@@ -24,17 +31,15 @@ public:
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
 protected:
-	void Strafe(float Val);
-	void Move(float Val);
+	void MoveSideways(float Val);
+	void MoveForward(float Val);
+	void MovePushingPawn(FVector dir, float Val);
 
 	UFUNCTION()
 	void OnHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComponent, FVector NormalImpulse, const FHitResult& Hit);
 
 	void Push();
 	void Release();
-	void MoveBox(const FVector &v, float Value);
 
-	class APresentPawn *m_boxPawn;
-	bool m_pushing;
-	FVector m_offset;
+	class APresentPawn *PushingPawn;
 };

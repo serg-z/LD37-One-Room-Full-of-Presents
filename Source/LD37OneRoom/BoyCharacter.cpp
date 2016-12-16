@@ -1,15 +1,18 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
 #include "LD37OneRoom.h"
 #include "BoyCharacter.h"
 
+#include "Engine.h"
+
 #include "PresentPawn.h"
+
+#define print(text) if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 1.5, FColor::White, text)
 
 // Sets default values
 ABoyCharacter::ABoyCharacter() :
-	m_pushing(false)
+	Pushing(false),
+	PushingMoveTransition(0.0f)
 {
- 	// Set this character to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
+	// Set this character to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
 
 	bUseControllerRotationPitch = false;
@@ -28,7 +31,6 @@ ABoyCharacter::ABoyCharacter() :
 void ABoyCharacter::BeginPlay()
 {
 	Super::BeginPlay();
-	
 }
 
 // Called every frame
@@ -36,17 +38,18 @@ void ABoyCharacter::Tick( float DeltaTime )
 {
 	Super::Tick( DeltaTime );
 
-	if (m_boxPawn)
+	if (PushingPawn && Pushing)
 	{
-		if (GetDistanceTo(m_boxPawn) > 95)
-		{
-			Release();
-			return;
-		}
+		PushingLastInputVector = PushingPawn->GetMovementComponent()->GetLastInputVector();
 
-		if (m_pushing)
 		{
-			SetActorLocation(m_boxPawn->GetActorLocation() + m_offset);
+			FVector v = PushingLastInputVector;
+			v.Normalize();
+
+			float alpha = 10.0f * DeltaTime;
+
+			// exponential moving average
+			PushingMoveTransition = alpha * v.Size() + (1.0f - alpha) * PushingMoveTransition;
 		}
 	}
 }
@@ -56,73 +59,81 @@ void ABoyCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompon
 {
 	Super::SetupPlayerInputComponent(PlayerInputComponent);
 
-	PlayerInputComponent->BindAxis("Strafe", this, &ABoyCharacter::Strafe);
-	PlayerInputComponent->BindAxis("Move", this, &ABoyCharacter::Move);
+	PlayerInputComponent->BindAxis("Strafe", this, &ABoyCharacter::MoveSideways);
+	PlayerInputComponent->BindAxis("Move", this, &ABoyCharacter::MoveForward);
 
 	PlayerInputComponent->BindAction("Push", IE_Pressed, this, &ABoyCharacter::Push);
 	PlayerInputComponent->BindAction("Push", IE_Released, this, &ABoyCharacter::Release);
 }
 
-void ABoyCharacter::Strafe(float Value)
+void ABoyCharacter::MoveSideways(float Value)
 {
 	const FVector &v = FVector(0.f, 1.f, 0.f);
 
-	AddMovementInput(v, Value);
-
-	MoveBox(v, Value);
+	if (PushingPawn && Pushing)
+	{
+		MovePushingPawn(v, Value);
+	}
+	else
+	{
+		AddMovementInput(v, Value);
+	}
 }
 
-void ABoyCharacter::Move(float Value)
+void ABoyCharacter::MoveForward(float Value)
 {
 	const FVector &v = FVector(1.f, 0.f, 0.f);
 
-	AddMovementInput(v, Value);
-
-	MoveBox(v, Value);
+	if (PushingPawn && Pushing)
+	{
+		MovePushingPawn(v, Value);
+	}
+	else
+	{
+		AddMovementInput(v, Value);
+	}
 }
 
 void ABoyCharacter::OnHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComponent, FVector NormalImpulse, const FHitResult& Hit)
 {
 	APresentPawn *pawn = Cast<APresentPawn>(OtherActor);
 	
-	if (pawn && !m_pushing)
+	if (pawn && !Pushing)
 	{
-		m_boxPawn = pawn;
+		PushingPawn = pawn;
 	}
 }
 
 void ABoyCharacter::Push()
 {
-	UE_LOG(LogTemp, Warning, TEXT("PUSH"));
-
-	if (m_boxPawn)
+	if (PushingPawn && GetDistanceTo(PushingPawn) < 95.0f)
 	{
-		m_pushing = true;
+		Pushing = true;
 
 		GetCharacterMovement()->bOrientRotationToMovement = false;
 		GetCharacterMovement()->MaxWalkSpeed = 150.f;
 
-		m_offset = GetActorLocation() - m_boxPawn->GetActorLocation();
-		m_offset.Normalize();
-		m_offset *= 90;
+		AttachToActor(PushingPawn, FAttachmentTransformRules::KeepWorldTransform);
+		SetActorEnableCollision(false);
 	}
 }
 
 void ABoyCharacter::Release()
 {
-	UE_LOG(LogTemp, Warning, TEXT("RELEASE"));
+	Pushing = false;
+	PushingMoveTransition = 0.0f;
 
-	m_pushing = false;
-	m_boxPawn = nullptr;
+	DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
+	SetActorEnableCollision(true);
 
 	GetCharacterMovement()->bOrientRotationToMovement = true;
 	GetCharacterMovement()->MaxWalkSpeed = 600.f;
 }
 
-void ABoyCharacter::MoveBox(const FVector &v, float Value)
+void ABoyCharacter::MovePushingPawn(FVector v, float Value)
 {
-	if (m_boxPawn && m_pushing)
+	if (PushingPawn && Pushing)
 	{
-		m_boxPawn->AddMovementInput(v, Value);
+		PushingPawn->AddMovementInput(v, Value);
 	}
 }
