@@ -96,10 +96,10 @@ void ABoyCharacter::AddMovementInput(FVector WorldDirection, float ScaleValue, b
 		{
 			FVector v = WorldDirection * ScaleValue;
 
-			if (m_traceXPos && v.X > 0 || m_traceXNeg && v.X < 0)
+			if ((m_traceXPos && v.X > 0) || (m_traceXNeg && v.X < 0))
 				WorldDirection.X = 0;
 
-			if (m_traceYPos && v.Y > 0 || m_traceYNeg  && v.Y < 0)
+			if ((m_traceYPos && v.Y) > 0 || (m_traceYNeg  && v.Y < 0))
 				WorldDirection.Y = 0;
 
 			PushingPawn->AddMovementInput(WorldDirection, ScaleValue, bForce);
